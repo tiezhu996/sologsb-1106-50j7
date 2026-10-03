@@ -3,10 +3,13 @@
   import EmptyBox from '../components/common/EmptyBox.svelte'
   import { draftStore } from '../stores/draftStore'
   import { blockStore } from '../stores/blockStore'
+  import { blockVersionStore } from '../stores/blockVersionStore'
   import { buildDeviationNote } from '../utils/seq'
+  import { buildBatchSnapshots, resolveLatestByBlock } from '../utils/trace'
   import { downloadJson } from '../utils/export'
   import { db } from '../utils/db'
   import type { PrintBatch } from '../types/batch'
+  import type { BlockVersion } from '../types/blockVersion'
 
   let batches = $state<PrintBatch[]>([])
   let showForm = $state(false)
@@ -26,8 +29,29 @@
     draftId ? [...$blockStore].filter((block) => block.draftId === draftId).sort((a, b) => a.colorNo - b.colorNo) : [],
   )
 
+  // 登记前预览：登记时逐版固定当时的最新留版
+  const versionPreview = $derived(
+    draftId
+      ? resolveLatestByBlock(
+          [...$blockStore].filter((block) => block.draftId === draftId),
+          $blockVersionStore,
+        )
+      : [],
+  )
+  const readyCount = $derived(versionPreview.filter((entry) => entry.version !== null).length)
+  const pendingBlocks = $derived(versionPreview.filter((entry) => entry.version === null))
+
+  function cnNumeral(n: number): string {
+    return ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][n - 1] ?? String(n)
+  }
+
+  function versionChip(version: BlockVersion | null): { text: string; tone: string } {
+    if (!version) return { text: '尚未留版', tone: 'pending' }
+    return { text: `第${cnNumeral(version.versionNo)}版 · ${version.kind}`, tone: version.legacy ? 'legacy' : 'current' }
+  }
+
   onMount(() => {
-    void Promise.all([draftStore.load(), blockStore.load(), refreshBatches()])
+    void Promise.all([draftStore.load(), blockStore.load(), blockVersionStore.load(), refreshBatches()])
   })
 
   async function refreshBatches(): Promise<void> {
@@ -79,6 +103,8 @@
       qty: Number(qty),
       pieceCount: Number(pieceCount),
       qcNote: qcNote.trim() ? `${qcNote.trim()}；${deviationText}` : deviationText,
+      // 登记即固定本批版本，之后返修不改旧批次
+      blockSnapshots: buildBatchSnapshots(selectedBlocks, $blockVersionStore),
     })
 
     await refreshBatches()
@@ -94,13 +120,24 @@
   }
 
   async function exportArchive(): Promise<void> {
-    const [drafts, blocks, carvers, nodes] = await Promise.all([
+    const [drafts, blocks, carvers, nodes, blockVersions, sales] = await Promise.all([
       db.drafts.toArray(),
       db.blocks.toArray(),
       db.carvers.toArray(),
       db.nodes.toArray(),
+      db.blockVersions.toArray(),
+      db.sales.toArray(),
     ])
-    downloadJson('木版年画工序档案.json', { exportedAt: new Date().toISOString(), drafts, blocks, batches, carvers, nodes })
+    downloadJson('木版年画工序档案.json', {
+      exportedAt: new Date().toISOString(),
+      drafts,
+      blocks,
+      batches,
+      carvers,
+      nodes,
+      blockVersions,
+      sales,
+    })
   }
 </script>
 
@@ -194,6 +231,36 @@
           {/each}
         </div>
       </div>
+
+      <div class="version-fix-block" data-testid="version-fix">
+        <div class="section-title-row">
+          <div>
+            <span class="section-kicker">本批固定版本</span>
+            <h3>登记后不再随返修改变</h3>
+          </div>
+          <span>{readyCount}/{versionPreview.length} 块已留版</span>
+        </div>
+        <div class="version-fix-grid">
+          {#each versionPreview as entry}
+            {@const chip = versionChip(entry.version)}
+            <div class="version-fix-item tone-{chip.tone}">
+              <span><b>{entry.block.colorNo}</b>{entry.block.blockName}</span>
+              <strong>{chip.text}</strong>
+              {#if entry.version}
+                <small>{entry.version.markedAt.replace(/-/g, '.')} · {entry.version.markedBy}</small>
+              {:else}
+                <small>该版尚未刻成留版，本批不录快照，追溯按断点展示</small>
+              {/if}
+            </div>
+          {/each}
+        </div>
+        {#if pendingBlocks.length > 0}
+          <p class="form-message" data-testid="version-pending-warning">
+            {pendingBlocks.map((entry) => entry.block.blockName).join('、')}尚未留版；
+            本批可按试印登记，但只固定已留版版片，未留版部分日后无法还原用版。
+          </p>
+        {/if}
+      </div>
     {/if}
 
     <label class="stacked-field">
@@ -232,6 +299,19 @@
         <div class="batch-notes">
           <p><b>颜料胶量：</b>{batch.inkNote}</p>
           <p><b>套色检查：</b>{batch.qcNote}</p>
+          <div class="snapshot-strip" data-testid={`snapshots-${batch.id}`}>
+            {#if !batch.blockSnapshots || batch.blockSnapshots.length === 0}
+              <span class="gap-tag">旧档断点：本批登记时未留版本快照，无法还原当时用版。</span>
+            {:else}
+              {#each [...batch.blockSnapshots].sort((a, b) => a.colorNo - b.colorNo) as snapshot}
+                <span class="snapshot-chip legacy-{snapshot.legacy ? true : false}" title={snapshot.versionNote}>
+                  <b>{snapshot.blockName}</b>
+                  第{cnNumeral(snapshot.versionNo)}版 · {snapshot.kind}
+                  {#if snapshot.legacy}<em>旧档补建</em>{/if}
+                </span>
+              {/each}
+            {/if}
+          </div>
         </div>
       </article>
     {/each}

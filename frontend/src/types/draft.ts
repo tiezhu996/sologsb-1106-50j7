@@ -9,4 +9,6 @@ export interface Draft {
   sizeCm: string
   paperNote: string
   status: DraftStatus
+  /** IndexedDB 结构版本标记（写入时回填，业务逻辑不依赖） */
+  schemaRev?: number
 }

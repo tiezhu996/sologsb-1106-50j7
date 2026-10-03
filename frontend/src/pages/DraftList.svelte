@@ -93,6 +93,7 @@
           carvedBy: '',
           state: '待刻',
           defectNote: '',
+          schemaRev: 3,
         })
       }
     })

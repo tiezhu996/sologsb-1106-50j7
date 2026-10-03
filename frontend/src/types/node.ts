@@ -10,4 +10,5 @@ export interface ProcessNode {
   startedAt: string
   durationMin: number
   note: string
+  schemaRev?: number
 }

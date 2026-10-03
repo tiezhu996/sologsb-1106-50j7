@@ -12,4 +12,5 @@ export interface Block {
   carvedBy: string
   state: BlockState
   defectNote: string
+  schemaRev?: number
 }
