@@ -6,17 +6,22 @@
   import EmptyBox from '../components/common/EmptyBox.svelte'
   import SeqInput from '../components/common/SeqInput.svelte'
   import StageRail from '../components/common/StageRail.svelte'
+  import VersionChip from '../components/common/VersionChip.svelte'
+  import BlockRepairPanel from '../components/BlockRepairPanel.svelte'
   import { blockStore } from '../stores/blockStore'
   import { carverStore } from '../stores/carverStore'
   import { draftStore } from '../stores/draftStore'
+  import { versionStore } from '../stores/versionStore'
   import { useBlockOrder } from '../hooks/useBlockOrder'
   import { useCarverLoad } from '../hooks/useCarverLoad'
   import { validateColorSequence } from '../utils/seq'
   import { db } from '../utils/db'
   import type { Block } from '../types/block'
   import type { ProcessStage } from '../types/node'
+  import type { BlockVersion } from '../types/version'
 
   const draftId = $derived($params?.id ?? '')
+  const latestVersions = versionStore.latestByBlock
   const {
     blocks: orderedBlocks,
     carvedRate: blockCarvedRate,
@@ -30,11 +35,13 @@
   let selectedCarverId = $state('')
   let notice = $state('')
   let lastSync = $state('刚刚')
+  let repairBlockId = $state('')
 
   const draft = $derived($draftStore.find((item) => item.id === draftId) ?? null)
+  const repairBlock = $derived($orderedBlocks.find((item) => item.id === repairBlockId) ?? null)
 
   onMount(() => {
-    void Promise.all([draftStore.load(), blockStore.load(), carverStore.load()])
+    void Promise.all([draftStore.load(), blockStore.load(), carverStore.load(), versionStore.load()])
   })
 
   $effect(() => {
@@ -80,6 +87,14 @@
     const allCarved = currentBlocks.every((item) => item.state === '已刻成' || item.state === '已修版')
     await draftStore.update(draftId, { status: allCarved ? '可印' : '刻版中' })
 
+    // 标刻成即留下版片版本，供后续批次登记时固定快照
+    const version = await versionStore.record(
+      block.id,
+      '刻成留档',
+      block.carvedBy || '当班刻工',
+      block.defectNote ? `标刻成验线。${block.defectNote}` : '标刻成验线，留档版本。',
+    )
+
     const existing = await db.nodes.where('blockId').equals(block.id).toArray()
     await db.nodes.add({
       id: `node-${crypto.randomUUID()}`,
@@ -89,9 +104,17 @@
       operator: block.carvedBy || '当班刻工',
       startedAt: new Date().toISOString().slice(0, 16),
       durationMin: 0,
-      note: '版片验线后标记刻成。',
+      note: `版片验线后标记刻成，留档 v${version.versionNo}。`,
     })
-    lastSync = `${block.blockName}已标记刻成`
+    lastSync = `${block.blockName}已标记刻成，留档 v${version.versionNo}`
+  }
+
+  function openRepair(block: Block): void {
+    repairBlockId = repairBlockId === block.id ? '' : block.id
+  }
+
+  function handleRepaired(version: BlockVersion, affectedCount: number): void {
+    lastSync = `${version.kind} v${version.versionNo} 已留档，涉及已售作品 ${affectedCount} 件`
   }
 
   async function saveSequence(block: Block): Promise<void> {
@@ -174,6 +197,10 @@
     <div><span>需修版片</span><strong>{$orderedBlocks.filter((block) => block.defectNote).length}</strong></div>
   </section>
 
+  {#if repairBlock}
+    <BlockRepairPanel block={repairBlock} onclose={() => (repairBlockId = '')} onrepaired={handleRepaired} />
+  {/if}
+
   <div class="workbench-grid">
     <section class="panel table-panel wide-panel">
       <div class="panel-heading">
@@ -201,6 +228,7 @@
             </thead>
             <tbody>
               {#each $orderedBlocks as block, blockIndex (block.id)}
+                {@const latestVersion = $latestVersions[block.id]}
                 <tr data-testid="row-block">
                   <td class="sequence-cell">
                     {#if sequenceDraft[block.id] !== undefined}
@@ -238,8 +266,18 @@
                   </td>
                   <td>
                     <span class="tag state-{block.state}">{block.state}</span>
+                    <span class="version-cell">
+                      <VersionChip
+                        blockName={block.blockName}
+                        colorNo={block.colorNo}
+                        versionNo={latestVersion?.versionNo ?? null}
+                        broken={!latestVersion && (block.state === '已刻成' || block.state === '已修版')}
+                      />
+                    </span>
                     {#if block.state !== '已刻成' && block.state !== '已修版'}
                       <button class="mini-button strong" type="button" onclick={() => markCarved(block)}>标刻成</button>
+                    {:else}
+                      <button class="mini-button" data-testid={`repair-${block.id}`} type="button" onclick={() => openRepair(block)}>修版留档</button>
                     {/if}
                   </td>
                   <td>

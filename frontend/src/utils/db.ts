@@ -4,6 +4,8 @@ import type { Block } from '../types/block'
 import type { Carver } from '../types/carver'
 import type { PrintBatch } from '../types/batch'
 import type { ProcessNode } from '../types/node'
+import type { BlockVersion } from '../types/version'
+import type { Sale } from '../types/sale'
 
 type StoredRecord = Record<string, unknown> & { schemaRev?: number }
 
@@ -13,6 +15,8 @@ class WoodprintDatabase extends Dexie {
   carvers!: Table<Carver, string>
   batches!: Table<PrintBatch, string>
   nodes!: Table<ProcessNode, string>
+  versions!: Table<BlockVersion, string>
+  sales!: Table<Sale, string>
 
   constructor() {
     super('gbwoodprint-db')
@@ -41,6 +45,12 @@ class WoodprintDatabase extends Dexie {
           })
         }
       })
+
+    // v3 新增版片版本留档与售出登记两表；旧批次没有版本快照，追溯时按断点兼容展示
+    this.version(3).stores({
+      versions: 'id, blockId, versionNo, kind, createdAt, schemaRev',
+      sales: 'id, artworkNo, batchId, status, soldAt, schemaRev',
+    })
   }
 }
 
@@ -151,6 +161,12 @@ const batches: PrintBatch[] = [
     qty: 480,
     pieceCount: 4,
     qcNote: '墨线版：线条饱满；黄版：右下荷叶略轻；红版：娃娃衣襟套准；绿版：未见走版。',
+    versionSnapshot: [
+      { blockId: 'block-ll-01', blockName: '墨线版', colorNo: 1, versionId: 'version-ll-01-2', versionNo: 2 },
+      { blockId: 'block-ll-02', blockName: '黄版', colorNo: 2, versionId: 'version-ll-02-1', versionNo: 1 },
+      { blockId: 'block-ll-03', blockName: '红版', colorNo: 3, versionId: 'version-ll-03-1', versionNo: 1 },
+      { blockId: 'block-ll-04', blockName: '绿版', colorNo: 4, versionId: 'version-ll-04-1', versionNo: 1 },
+    ],
   },
   {
     id: 'batch-ll-002',
@@ -162,8 +178,15 @@ const batches: PrintBatch[] = [
     qty: 320,
     pieceCount: 4,
     qcNote: '墨线版：清晰；黄版：套准；红版：左肩偏差约半线；绿版：荷叶边略重。',
+    versionSnapshot: [
+      { blockId: 'block-ll-01', blockName: '墨线版', colorNo: 1, versionId: 'version-ll-01-2', versionNo: 2 },
+      { blockId: 'block-ll-02', blockName: '黄版', colorNo: 2, versionId: 'version-ll-02-1', versionNo: 1 },
+      { blockId: 'block-ll-03', blockName: '红版', colorNo: 3, versionId: 'version-ll-03-1', versionNo: 1 },
+      { blockId: 'block-ll-04', blockName: '绿版', colorNo: 4, versionId: 'version-ll-04-1', versionNo: 1 },
+    ],
   },
   {
+    // 旧批次：登记早于版片版本留档，缺 versionSnapshot，追溯页按断点展示
     id: 'batch-ms-001',
     draftId: 'draft-menshen-qin',
     batchNo: '门神-试印-01',
@@ -174,6 +197,31 @@ const batches: PrintBatch[] = [
     pieceCount: 2,
     qcNote: '墨线版：样张无断线；黄版：肩甲外侧出现轻微走版，已重校定位。',
   },
+]
+
+const versions: BlockVersion[] = [
+  { id: 'version-ll-01-1', blockId: 'block-ll-01', versionNo: 1, kind: '刻成留档', operator: '齐师傅', note: '墨线版刻成验线，娃娃轮廓与抱鱼线条一次成版。', createdAt: '2025-12-08T16:30' },
+  { id: 'version-ll-01-2', blockId: 'block-ll-01', versionNo: 2, kind: '修版留档', operator: '秦木生', note: '鱼鳞线加修一次，边缘改圆顺。', createdAt: '2025-12-11T15:40' },
+  { id: 'version-ll-02-1', blockId: 'block-ll-02', versionNo: 1, kind: '刻成留档', operator: '周桂枝', note: '黄版刻成，荷叶边缘有针尖小孔，不影响印面。', createdAt: '2025-12-15T11:20' },
+  { id: 'version-ll-03-1', blockId: 'block-ll-03', versionNo: 1, kind: '刻成留档', operator: '陈小满', note: '红版刻成，无补版。', createdAt: '2025-12-18T10:05' },
+  { id: 'version-ll-04-1', blockId: 'block-ll-04', versionNo: 1, kind: '刻成留档', operator: '秦木生', note: '绿版刻成，青绿地留白平净。', createdAt: '2025-12-20T14:10' },
+]
+
+const sales: Sale[] = [
+  { id: 'sale-ll-0001', artworkNo: 'LLY-0001', batchId: 'batch-ll-001', soldAt: '2026-01-25', buyer: '潍坊年画铺', channel: '门市', status: '有效' },
+  {
+    id: 'sale-ll-0002',
+    artworkNo: 'LLY-0002',
+    batchId: 'batch-ll-001',
+    soldAt: '2026-01-26',
+    buyer: '青州裱画社',
+    channel: '订货',
+    status: '退货待复检',
+    returnedAt: '2026-02-08',
+    returnNote: '买家反映娃娃面部套色错位，退回待复检，原批次关联保留。',
+  },
+  { id: 'sale-ll-0003', artworkNo: 'LLY-0003', batchId: 'batch-ll-002', soldAt: '2026-02-10', buyer: '绵竹纸行', channel: '订货', status: '有效' },
+  { id: 'sale-ms-0001', artworkNo: 'MS-0001', batchId: 'batch-ms-001', soldAt: '2026-02-25', buyer: '县文化馆', channel: '展销', status: '有效' },
 ]
 
 const nodes: ProcessNode[] = [
@@ -194,7 +242,7 @@ const nodes: ProcessNode[] = [
 ]
 
 function withSchemaRevision<T extends object>(records: T[]): Array<T & { schemaRev: number }> {
-  return records.map((record) => ({ ...record, schemaRev: 2 }))
+  return records.map((record) => ({ ...record, schemaRev: 3 }))
 }
 
 export const db = new WoodprintDatabase()
@@ -206,6 +254,8 @@ db.on('populate', () => {
     db.carvers.bulkAdd(withSchemaRevision(carvers)),
     db.batches.bulkAdd(withSchemaRevision(batches)),
     db.nodes.bulkAdd(withSchemaRevision(nodes)),
+    db.versions.bulkAdd(withSchemaRevision(versions)),
+    db.sales.bulkAdd(withSchemaRevision(sales)),
   ])
 })
 
@@ -214,12 +264,14 @@ export async function initializeDatabase(): Promise<void> {
   const draftCount = await db.drafts.count()
   if (draftCount > 0) return
 
-  await db.transaction('rw', db.drafts, db.blocks, db.carvers, db.batches, db.nodes, async () => {
+  await db.transaction('rw', [db.drafts, db.blocks, db.carvers, db.batches, db.nodes, db.versions, db.sales], async () => {
     await db.drafts.bulkPut(withSchemaRevision(drafts))
     await db.blocks.bulkPut(withSchemaRevision(blocks))
     await db.carvers.bulkPut(withSchemaRevision(carvers))
     await db.batches.bulkPut(withSchemaRevision(batches))
     await db.nodes.bulkPut(withSchemaRevision(nodes))
+    await db.versions.bulkPut(withSchemaRevision(versions))
+    await db.sales.bulkPut(withSchemaRevision(sales))
   })
 }
 

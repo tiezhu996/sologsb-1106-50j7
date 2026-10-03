@@ -1,12 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { get } from 'svelte/store'
   import EmptyBox from '../components/common/EmptyBox.svelte'
+  import VersionChip from '../components/common/VersionChip.svelte'
   import { draftStore } from '../stores/draftStore'
   import { blockStore } from '../stores/blockStore'
+  import { versionStore } from '../stores/versionStore'
   import { buildDeviationNote } from '../utils/seq'
+  import { hasSnapshotGap } from '../utils/trace'
   import { downloadJson } from '../utils/export'
   import { db } from '../utils/db'
-  import type { PrintBatch } from '../types/batch'
+  import type { PrintBatch, BatchBlockVersion } from '../types/batch'
+
+  const latestVersions = versionStore.latestByBlock
 
   let batches = $state<PrintBatch[]>([])
   let showForm = $state(false)
@@ -27,7 +33,7 @@
   )
 
   onMount(() => {
-    void Promise.all([draftStore.load(), blockStore.load(), refreshBatches()])
+    void Promise.all([draftStore.load(), blockStore.load(), versionStore.load(), refreshBatches()])
   })
 
   async function refreshBatches(): Promise<void> {
@@ -69,6 +75,19 @@
       })),
     )
 
+    // 登记批次时固定本批所用版片版本，之后返修不改本批快照
+    const latestByBlock = get(latestVersions)
+    const versionSnapshot: BatchBlockVersion[] = selectedBlocks.map((block) => {
+      const latest = latestByBlock[block.id]
+      return {
+        blockId: block.id,
+        blockName: block.blockName,
+        colorNo: block.colorNo,
+        versionId: latest?.id ?? null,
+        versionNo: latest?.versionNo ?? null,
+      }
+    })
+
     await db.batches.add({
       id: `batch-${crypto.randomUUID()}`,
       draftId,
@@ -79,6 +98,7 @@
       qty: Number(qty),
       pieceCount: Number(pieceCount),
       qcNote: qcNote.trim() ? `${qcNote.trim()}；${deviationText}` : deviationText,
+      versionSnapshot,
     })
 
     await refreshBatches()
@@ -94,13 +114,15 @@
   }
 
   async function exportArchive(): Promise<void> {
-    const [drafts, blocks, carvers, nodes] = await Promise.all([
+    const [drafts, blocks, carvers, nodes, versions, sales] = await Promise.all([
       db.drafts.toArray(),
       db.blocks.toArray(),
       db.carvers.toArray(),
       db.nodes.toArray(),
+      db.versions.toArray(),
+      db.sales.toArray(),
     ])
-    downloadJson('木版年画工序档案.json', { exportedAt: new Date().toISOString(), drafts, blocks, batches, carvers, nodes })
+    downloadJson('木版年画工序档案.json', { exportedAt: new Date().toISOString(), drafts, blocks, batches, carvers, nodes, versions, sales })
   }
 </script>
 
@@ -182,8 +204,17 @@
         </div>
         <div class="deviation-grid">
           {#each selectedBlocks as block}
+            {@const currentVersion = $latestVersions[block.id]}
             <label>
-              <span><b>{block.colorNo}</b>{block.blockName}</span>
+              <span>
+                <b>{block.colorNo}</b>{block.blockName}
+                <VersionChip
+                  blockName={block.blockName}
+                  colorNo={block.colorNo}
+                  versionNo={currentVersion?.versionNo ?? null}
+                  broken={!currentVersion}
+                />
+              </span>
               <input
                 data-testid={`field-deviation-${block.id}`}
                 value={deviations[block.id] ?? ''}
@@ -193,6 +224,7 @@
             </label>
           {/each}
         </div>
+        <p class="gentle-copy snapshot-hint">保存时将按上方当前留档固定本批版片版本；未留档的版片会以断点记入快照。</p>
       </div>
     {/if}
 
@@ -232,6 +264,26 @@
         <div class="batch-notes">
           <p><b>颜料胶量：</b>{batch.inkNote}</p>
           <p><b>套色检查：</b>{batch.qcNote}</p>
+        </div>
+        <div class="batch-versions" data-testid={`snapshot-${batch.id}`}>
+          {#if hasSnapshotGap(batch)}
+            <p class="gap-note">
+              <span class="gap-mark" aria-hidden="true"></span>
+              版本断点：本批登记早于版片版本留档，无法对应当时版片版本，追溯时按断点展示。
+            </p>
+          {:else}
+            <span class="snapshot-label">本批版片版本</span>
+            <div class="chip-row">
+              {#each batch.versionSnapshot ?? [] as entry (entry.blockId)}
+                <VersionChip
+                  blockName={entry.blockName}
+                  colorNo={entry.colorNo}
+                  versionNo={entry.versionNo}
+                  broken={entry.versionNo === null}
+                />
+              {/each}
+            </div>
+          {/if}
         </div>
       </article>
     {/each}

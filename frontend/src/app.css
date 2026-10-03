@@ -1185,3 +1185,318 @@ textarea:focus {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ---- 版片版本留档与批次快照 ---- */
+
+.version-cell {
+  display: inline-flex;
+  margin: 0.35rem 0.45rem 0 0;
+  vertical-align: middle;
+}
+
+.snapshot-hint {
+  margin: 0.9rem 0 0;
+  font-size: 0.8rem;
+}
+
+.batch-versions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.snapshot-label {
+  color: var(--ink-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.gap-note {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  color: #79540e;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.gap-note.small {
+  margin-bottom: 0.6rem;
+  font-size: 0.76rem;
+}
+
+.gap-mark {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 1.6rem;
+  height: 0.55rem;
+  align-self: center;
+  background:
+    linear-gradient(90deg, var(--gold) 0 35%, transparent 35% 65%, var(--gold) 65% 100%);
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+/* ---- 售出登记 ---- */
+
+.sale-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.sale-item {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.sale-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sale-head h2 {
+  margin: 0.3rem 0 0.2rem;
+  font-size: 1.05rem;
+}
+
+.sale-head p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.sale-no {
+  color: var(--cinnabar);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.sale-note {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid var(--gold);
+  background: rgba(187, 132, 45, 0.08);
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.sale-note b {
+  color: var(--ink);
+}
+
+.inline-form {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  background: rgba(243, 234, 217, 0.4);
+}
+
+.inline-form .stacked-field {
+  margin-top: 0;
+}
+
+.trace-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.tag.state-有效 {
+  color: #fff;
+  background: var(--jade);
+}
+
+.tag.state-退货待复检 {
+  color: #fff;
+  background: var(--gold);
+}
+
+.tag.state-已复检 {
+  color: var(--ink-soft);
+  background: #e6dac8;
+}
+
+/* ---- 溯源追查 ---- */
+
+.trace-stack {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.trace-sale {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.trace-batch {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--paper-deep);
+}
+
+.trace-batch h3 {
+  margin: 0.2rem 0 0.35rem;
+}
+
+.trace-batch p {
+  margin: 0.2rem 0;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.gap-divider {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed var(--gold);
+  border-radius: var(--radius-md);
+  background: #fbf3df;
+}
+
+.gap-divider p {
+  margin: 0;
+  color: #79540e;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+.chain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 0.9rem;
+}
+
+.chain-grid.legacy .chain-card {
+  border-style: dashed;
+}
+
+.chain-card {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fffdf8;
+}
+
+.chain-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.chain-head > span {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.version-chain {
+  list-style: none;
+  position: relative;
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0 0 0 0.9rem;
+}
+
+.version-chain::before {
+  content: '';
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  left: 0.2rem;
+  width: 2px;
+  background: var(--line);
+}
+
+.version-chain li {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.version-chain li::before {
+  content: '';
+  position: absolute;
+  top: 0.32rem;
+  left: -0.86rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--line-strong);
+}
+
+.version-chain li.used::before {
+  border-color: var(--jade);
+  background: var(--jade);
+}
+
+.version-chain li.after::before {
+  border-color: var(--cinnabar);
+  background: var(--cinnabar);
+}
+
+.chain-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chain-title strong {
+  font-size: 0.86rem;
+}
+
+.version-chain p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.version-chain small {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+}
+
+.tag.kind-刻成留档 {
+  color: var(--ink-soft);
+  background: #e6dac8;
+}
+
+.tag.kind-修版留档 {
+  color: #fff;
+  background: var(--gold);
+}
+
+.tag.used-tag {
+  color: #fff;
+  background: var(--jade);
+}
+
+.tag.repair-tag {
+  color: #fff;
+  background: var(--cinnabar);
+}
